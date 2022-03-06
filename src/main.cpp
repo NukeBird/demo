@@ -3,6 +3,15 @@
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Mesh.h>
+#include <Magnum/Trade/MeshData.h>
+#include <Magnum/MeshTools/Compile.h>
+#include <Magnum/MeshTools/GenerateNormals.h>
+#include <Magnum/Primitives/UVSphere.h>
+#include <Magnum/GL/Shader.h>
+#include <Magnum/Shaders/Generic.h>
+#include <Magnum/Shaders/visibility.h>
+#include <Corrade/Containers/Reference.h>
+#include <Magnum/GL/Version.h>
 #include <Magnum/GL/DebugOutput.h>
 #include <Magnum/Math/Color.h>
 #include <Magnum/Platform/GLContext.h>
@@ -18,12 +27,110 @@ using namespace Magnum;
 class PBRShader: public GL::AbstractShaderProgram 
 {
 public:
-    typedef GL::Attribute<0, Vector3> Position;
-    typedef GL::Attribute<1, Vector2> TextureCoord;
+    typedef Shaders::Generic3D::Position Position; //0
+    typedef Shaders::Generic3D::TextureCoordinates TextureCoord; //1
+    typedef Shaders::Generic3D::Tangent Tangent; //3
+    typedef Shaders::Generic3D::Bitangent Bitangent; //4
+    typedef Shaders::Generic3D::Normal Normal; //5
 
     explicit PBRShader()
     {
+        MAGNUM_ASSERT_GL_VERSION_SUPPORTED(GL::Version::GL450);
 
+        GL::Shader vert(GL::Version::GL450, GL::Shader::Type::Vertex);
+        GL::Shader frag(GL::Version::GL450, GL::Shader::Type::Fragment);
+
+        vert.addSource(R"(
+            layout(location = 0) in vec3 position;
+            layout(location = 1) in vec2 tex_coord;
+            layout(location = 3) in vec3 tangent;
+            layout(location = 4) in vec3 bitangent;
+            layout(location = 5) in vec3 normal;
+
+            uniform mat4 model_matrix;
+            uniform mat4 view_matrix;
+            uniform mat4 proj_matrix;
+            uniform mat4 normal_matrix;
+
+            void main()
+            {   
+                mat4 mvp_matrix = proj_matrix * view_matrix * model_matrix;
+                gl_Position = mvp_matrix * vec4(position, 1.0);
+            }
+        )");
+
+        frag.addSource(R"(
+            out vec4 fragment_color;
+
+            void main()
+            {   
+                fragment_color = vec4(0.0, 1.0, 0.0, 1.0);
+            }
+        )");
+
+        CORRADE_INTERNAL_ASSERT_OUTPUT(GL::Shader::compile({ vert, frag }));
+        attachShaders({ vert, frag }); 
+        CORRADE_INTERNAL_ASSERT_OUTPUT(link());
+
+        auto [status, message] = validate();
+
+        if (status)
+        {
+            spdlog::info("PBRShader compiled successfully");
+        }
+        else
+        {
+            spdlog::info("Unable to compile PBRShader");
+        }
+
+
+        if (!message.empty())
+        {
+            if (status)
+            {
+                spdlog::info(message);
+            }
+            else
+            {
+                spdlog::error(message);
+            }
+        }
+
+        //...
+        bindAttributeLocation(Position::Location, "position");
+        bindAttributeLocation(TextureCoord::Location, "tex_coord");
+        bindAttributeLocation(Normal::Location, "normal");
+        bindAttributeLocation(Tangent::Location, "tangent");
+        bindAttributeLocation(Bitangent::Location, "bitangent");
+
+        model_matrix_uniform = uniformLocation("model_matrix");
+        view_matrix_uniform = uniformLocation("view_matrix");
+        proj_matrix_uniform = uniformLocation("proj_matrix");
+        normal_matrix_uniform = uniformLocation("normal_matrix");
+    }
+
+    PBRShader& set_model_matrix(const glm::mat4& mtx)
+    {
+        setUniform(model_matrix_uniform, (Matrix4)mtx);
+        return *this;
+    }
+
+    PBRShader& set_view_matrix(const glm::mat4& mtx)
+    {
+        setUniform(view_matrix_uniform, (Matrix4)mtx);
+        return *this;
+    }
+
+    PBRShader& set_proj_matrix(const glm::mat4& mtx)
+    {
+        setUniform(proj_matrix_uniform, (Matrix4)mtx);
+        return *this;
+    }
+
+    PBRShader& set_normal_matrix(const glm::mat4& mtx)
+    {
+
+        return *this;
     }
 
     PBRShader& set_light_direction(const glm::vec3& dir)
@@ -107,6 +214,15 @@ private:
         AOUnit
     };
 
+
+    Int model_matrix_uniform,
+        view_matrix_uniform,
+        proj_matrix_uniform,
+        normal_matrix_uniform;
+
+    Int light_direction_uniform,
+        light_color_uniform;
+
     Int albedo_factor_uniform,
         roughness_factor_uniform,
         metallic_factor_uniform,
@@ -173,10 +289,14 @@ int main(int argc, char** argv)
                 Shaders::VertexColor3D::Position{},
                 Shaders::VertexColor3D::Color3{});
 
+        GL::Mesh sphere_mesh = MeshTools::compile(Primitives::uvSphereSolid(64, 64, Primitives::UVSphereFlag::Tangents | Primitives::UVSphereFlag::TextureCoordinates), 
+            MeshTools::CompileFlag::GenerateSmoothNormals);
+
         PBRShader pbr_shader; //TODO: pbr_shader -> shader
+        //pbr_shader.draw(sphere_mesh);
 
         Shaders::VertexColor3D shader;
-        const glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(100.0f));
+        const glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(50.0f));
         const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 100.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
         shader.setTransformationProjectionMatrix((Magnum::Matrix4)(proj * view * model));
 
@@ -185,7 +305,10 @@ int main(int argc, char** argv)
         while (!glfwWindowShouldClose(window)) 
         {
             GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
-            shader.draw(mesh);
+            pbr_shader.set_model_matrix(model)
+                .set_view_matrix(view)
+                .set_proj_matrix(proj)
+                .draw(sphere_mesh);
             glfwSwapBuffers(window);
             glfwPollEvents();
         }
