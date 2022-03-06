@@ -62,6 +62,14 @@ public:
         frag.addSource(R"(
             out vec4 fragment_color;
 
+            uniform vec3 light_direction_uniform = vec3(0.0, -0.5, -0.5);
+            uniform vec3 light_color_uniform = vec3(1.0, 1.0, 1.0);
+            uniform float albedo_factor_uniform = 1.0;
+            uniform float roughness_factor_uniform = 1.0;
+            uniform float metallic_factor_uniform = 1.0;
+            uniform float normal_factor_uniform = 1.0;
+            uniform float ao_factor_uniform = 1.0;
+
             void main()
             {   
                 fragment_color = vec4(0.0, 1.0, 0.0, 1.0);
@@ -107,6 +115,15 @@ public:
         view_matrix_uniform = uniformLocation("view_matrix");
         proj_matrix_uniform = uniformLocation("proj_matrix");
         normal_matrix_uniform = uniformLocation("normal_matrix");
+
+        light_direction_uniform = uniformLocation("light_direction");
+        light_color_uniform = uniformLocation("light_color");
+
+        albedo_factor_uniform = uniformLocation("albedo_factor");
+        roughness_factor_uniform = uniformLocation("roughness_factor");
+        metallic_factor_uniform = uniformLocation("metallic_factor");
+        normal_factor_uniform = uniformLocation("normal_factor");
+        ao_factor_uniform = uniformLocation("ao_factor");
     }
 
     PBRShader& set_model_matrix(const glm::mat4& mtx)
@@ -129,49 +146,49 @@ public:
 
     PBRShader& set_normal_matrix(const glm::mat4& mtx)
     {
-
+        setUniform(normal_matrix_uniform, (Matrix4)mtx);
         return *this;
     }
 
     PBRShader& set_light_direction(const glm::vec3& dir)
     {
-
+        setUniform(light_direction_uniform, (Vector3)dir);
         return *this;
     }
 
     PBRShader& set_light_color(const glm::vec3& color)
     {
-
+        setUniform(light_color_uniform, (Vector3)color);
         return *this;
     }
 
     PBRShader& set_albedo_factor(float factor)
     {
-
+        setUniform(albedo_factor_uniform, factor);
         return *this;
     }
 
     PBRShader& set_roughness_factor(float factor)
     {
-
+        setUniform(roughness_factor_uniform, factor);
         return *this;
     }
 
     PBRShader& set_metallic_factor(float factor)
     {
-
+        setUniform(metallic_factor_uniform, factor);
         return *this;
     }
 
     PBRShader& set_normal_factor(float factor)
     {
-
+        setUniform(normal_factor_uniform, factor);
         return *this;
     }
 
     PBRShader& set_ao_factor(float factor)
     {
-
+        setUniform(ao_factor_uniform, factor);
         return *this;
     }
 
