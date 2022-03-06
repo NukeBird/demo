@@ -81,11 +81,11 @@ public:
             in vec2 frag_tex_coord;
             out vec4 fragment_color;
 
-            layout(location = 0) uniform sampler2D albedo_texture;
-            layout(location = 1) uniform sampler2D roughness_texture;
-            layout(location = 2) uniform sampler2D metallic_texture;
-            layout(location = 3) uniform sampler2D normal_texture;
-            layout(location = 4) uniform sampler2D ao_texture;
+            uniform sampler2D albedo_texture;
+            uniform sampler2D roughness_texture;
+            uniform sampler2D metallic_texture;
+            uniform sampler2D normal_texture;
+            uniform sampler2D ao_texture;
 
             uniform float albedo_factor = 1.0;
             uniform float roughness_factor = 1.0;
@@ -118,12 +118,16 @@ public:
                     case AO_MODE:
                         fragment_color = vec4(vec3(ao), 1.0);
                         break;
-                    case BASIC_MODE:
                     case ALBEDO_MODE:
-                    default:
                         fragment_color = albedo;
                         break;
+                    case BASIC_MODE:
+                    default:
+                        fragment_color = albedo * vec4(vec3(ao), 1.0);
+                        break;
                 }
+
+                //fragment_color = vec4(normal, 1.0);
             }
         )");
 
@@ -177,6 +181,12 @@ public:
         ao_factor_uniform = uniformLocation("ao_factor");
 
         render_mode_uniform = uniformLocation("render_mode");
+
+        setUniform(uniformLocation("albedo_texture"), AlbedoUnit);
+        setUniform(uniformLocation("roughness_texture"), RoughnessUnit);
+        setUniform(uniformLocation("metallic_texture"), MetallicUnit);
+        setUniform(uniformLocation("normal_texture"), NormalUnit);
+        setUniform(uniformLocation("ao_texture"), AOUnit);
     }
 
     PBRShader& set_model_matrix(const Matrix4& mtx)
@@ -271,6 +281,7 @@ public:
 
     PBRShader& bind_ao_texture(GL::Texture2D& tex)
     {
+       
         tex.bind(AOUnit);
         return *this;
     }
@@ -385,7 +396,6 @@ int main(int argc, char** argv)
         image_loader->openFile("data/albedo.png");
         auto albedo_image = image_loader->image2D(0);
         CORRADE_INTERNAL_ASSERT(albedo_image);
-
         GL::Texture2D albedo_texture;
         albedo_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
             .setMagnificationFilter(GL::SamplerFilter::Linear)
@@ -393,6 +403,52 @@ int main(int argc, char** argv)
             .generateMipmap()
             .setStorage(1, GL::textureFormat(albedo_image->format()), albedo_image->size())
             .setSubImage(0, {}, *albedo_image);
+
+        image_loader->openFile("data/ao.png");
+        auto ao_image = image_loader->image2D(0);
+        CORRADE_INTERNAL_ASSERT(ao_image);
+        GL::Texture2D ao_texture;
+        ao_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
+            .setMagnificationFilter(GL::SamplerFilter::Linear)
+            .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
+            .generateMipmap()
+            .setStorage(1, GL::textureFormat(ao_image->format()), ao_image->size())
+            .setSubImage(0, {}, * ao_image);
+
+        image_loader->openFile("data/metallic.png");
+        auto metallic_image = image_loader->image2D(0);
+        CORRADE_INTERNAL_ASSERT(metallic_image);
+        GL::Texture2D metallic_texture;
+        metallic_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
+            .setMagnificationFilter(GL::SamplerFilter::Linear)
+            .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
+            .generateMipmap()
+            .setStorage(1, GL::textureFormat(metallic_image->format()), metallic_image->size())
+            .setSubImage(0, {}, * metallic_image);
+
+        image_loader->openFile("data/normal.png");
+        auto normal_image = image_loader->image2D(0);
+        CORRADE_INTERNAL_ASSERT(normal_image);
+        GL::Texture2D normal_texture;
+        normal_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
+            .setMagnificationFilter(GL::SamplerFilter::Linear)
+            .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
+            .generateMipmap()
+            .setStorage(1, GL::textureFormat(normal_image->format()), normal_image->size())
+            .setSubImage(0, {}, * normal_image);
+
+        image_loader->openFile("data/roughness.png");
+        auto roughness_image = image_loader->image2D(0);
+        CORRADE_INTERNAL_ASSERT(roughness_image);
+        GL::Texture2D roughness_texture;
+        roughness_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
+            .setMagnificationFilter(GL::SamplerFilter::Linear)
+            .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
+            .generateMipmap()
+            .setStorage(1, GL::textureFormat(roughness_image->format()), roughness_image->size())
+            .setSubImage(0, {}, * roughness_image);
+
+        spdlog::info("ABOBA {}", image_loader->image2DCount());
 
         spdlog::info("Initialization successful");
 
@@ -419,6 +475,10 @@ int main(int argc, char** argv)
                 .set_proj_matrix(Matrix4(proj))
                 .set_normal_matrix(Matrix4(view * model).normalMatrix())
                 .bind_albedo_texture(albedo_texture)
+                .bind_ao_texture(ao_texture)
+                .bind_metallic_texture(metallic_texture)
+                .bind_normal_texture(normal_texture)
+                .bind_roughness_texture(roughness_texture)
                 .set_render_mode(current_mode)
                 .draw(sphere_mesh);
             glfwSwapBuffers(window);
