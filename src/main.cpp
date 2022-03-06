@@ -10,6 +10,7 @@
 #include <Magnum/GL/Shader.h>
 #include <Magnum/Shaders/Generic.h>
 #include <Magnum/Shaders/visibility.h>
+#include <Magnum/GL/Texture.h>
 #include <Corrade/Containers/Reference.h>
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/DebugOutput.h>
@@ -62,6 +63,12 @@ public:
         frag.addSource(R"(
             out vec4 fragment_color;
 
+            layout(location = 0) uniform sampler2D albedo_texture;
+            layout(location = 1) uniform sampler2D roughness_texture;
+            layout(location = 2) uniform sampler2D metallic_texture;
+            layout(location = 3) uniform sampler2D normal_texture;
+            layout(location = 4) uniform sampler2D ao_texture;
+
             uniform vec3 light_direction_uniform = vec3(0.0, -0.5, -0.5);
             uniform vec3 light_color_uniform = vec3(1.0, 1.0, 1.0);
             uniform float albedo_factor_uniform = 1.0;
@@ -88,7 +95,7 @@ public:
         }
         else
         {
-            spdlog::info("Unable to compile PBRShader");
+            spdlog::error("Unable to compile PBRShader");
         }
 
 
@@ -194,31 +201,31 @@ public:
 
     PBRShader& bind_albedo_texture(GL::Texture2D& tex)
     {
-
+        tex.bind(AlbedoUnit);
         return *this;
     }
 
     PBRShader& bind_roughness_texture(GL::Texture2D& tex)
     {
-
+        tex.bind(RoughnessUnit);
         return *this;
     }
 
     PBRShader& bind_metallic_texture(GL::Texture2D& tex)
     {
-
+        tex.bind(MetallicUnit);
         return *this;
     }
 
     PBRShader& bind_normal_texture(GL::Texture2D& tex)
     {
-
+        tex.bind(NormalUnit);
         return *this;
     }
 
     PBRShader& bind_ao_texture(GL::Texture2D& tex)
     {
-
+        tex.bind(AOUnit);
         return *this;
     }
 private:
