@@ -70,6 +70,14 @@ public:
         )");
 
         frag.addSource(R"(
+            #define BASIC_MODE 0
+            #define ALBEDO_MODE 1
+            #define ROUGHNESS_MODE 2
+            #define METALLIC_MODE 3
+            #define NORMAL_MODE 4
+            #define AO_MODE 5
+            uniform int render_mode = BASIC_MODE;
+
             in vec2 frag_tex_coord;
             out vec4 fragment_color;
 
@@ -79,17 +87,43 @@ public:
             layout(location = 3) uniform sampler2D normal_texture;
             layout(location = 4) uniform sampler2D ao_texture;
 
-            uniform vec3 light_direction_uniform = vec3(0.0, -0.5, -0.5);
-            uniform vec3 light_color_uniform = vec3(1.0, 1.0, 1.0);
             uniform float albedo_factor = 1.0;
             uniform float roughness_factor = 1.0;
             uniform float metallic_factor = 1.0;
             uniform float normal_factor= 1.0;
             uniform float ao_factor = 1.0;
 
+            uniform vec3 light_direction_uniform = vec3(0.0, -0.5, -0.5);
+            uniform vec3 light_color_uniform = vec3(1.0, 1.0, 1.0);
+
             void main()
             {   
-                fragment_color = albedo_factor * texture2D(albedo_texture, frag_tex_coord);
+                vec4 albedo = texture2D(albedo_texture, frag_tex_coord) * albedo_factor;
+                float roughness = texture2D(roughness_texture, frag_tex_coord).r * roughness_factor;
+                float metallic = texture2D(metallic_texture, frag_tex_coord).r * metallic_factor;
+                vec3 normal = texture2D(normal_texture, frag_tex_coord).rgb * normal_factor;
+                float ao = texture2D(ao_texture, frag_tex_coord).r * ao_factor;
+            
+                switch(render_mode)
+                {
+                    case ROUGHNESS_MODE:
+                        fragment_color = vec4(vec3(roughness), 1.0);
+                        break;
+                    case METALLIC_MODE:
+                        fragment_color = vec4(vec3(metallic), 1.0);
+                        break;
+                    case NORMAL_MODE:
+                        fragment_color = vec4(normal, 1.0);
+                        break;
+                    case AO_MODE:
+                        fragment_color = vec4(vec3(ao), 1.0);
+                        break;
+                    case BASIC_MODE:
+                    case ALBEDO_MODE:
+                    default:
+                        fragment_color = albedo;
+                        break;
+                }
             }
         )");
 
@@ -141,6 +175,8 @@ public:
         metallic_factor_uniform = uniformLocation("metallic_factor");
         normal_factor_uniform = uniformLocation("normal_factor");
         ao_factor_uniform = uniformLocation("ao_factor");
+
+        render_mode_uniform = uniformLocation("render_mode");
     }
 
     PBRShader& set_model_matrix(const Matrix4& mtx)
@@ -238,6 +274,14 @@ public:
         tex.bind(AOUnit);
         return *this;
     }
+
+    PBRShader& set_render_mode(int mode)
+    {
+        setUniform(render_mode_uniform, mode % RENDER_MODE_COUNT);
+        return *this;
+    }
+
+    static const int RENDER_MODE_COUNT = 6;
 private:
     enum : Int //0..n
     {
@@ -254,7 +298,8 @@ private:
         normal_matrix_uniform;
 
     Int light_direction_uniform,
-        light_color_uniform;
+        light_color_uniform,
+        render_mode_uniform;
 
     Int albedo_factor_uniform,
         roughness_factor_uniform,
@@ -353,12 +398,28 @@ int main(int argc, char** argv)
 
         while (!glfwWindowShouldClose(window)) 
         {
+            static int last_key_state = GLFW_RELEASE;
+            static int current_mode = 0;
+
+            if (last_key_state == GLFW_RELEASE)
+            {
+                if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+                {
+                    last_key_state = GLFW_PRESS;
+                    current_mode = (current_mode + 1) % PBRShader::RENDER_MODE_COUNT;
+                    spdlog::info("Current mode {}", current_mode);
+                }
+            }
+            
+            last_key_state = glfwGetKey(window, GLFW_KEY_SPACE);
+
             GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
             pbr_shader.set_model_matrix(Matrix4(model))
                 .set_view_matrix(Matrix4(view))
                 .set_proj_matrix(Matrix4(proj))
                 .set_normal_matrix(Matrix4(view * model).normalMatrix())
                 .bind_albedo_texture(albedo_texture)
+                .set_render_mode(current_mode)
                 .draw(sphere_mesh);
             glfwSwapBuffers(window);
             glfwPollEvents();
