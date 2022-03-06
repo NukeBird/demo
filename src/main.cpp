@@ -13,6 +13,7 @@
 #include <Magnum/GL/Texture.h>
 #include <Magnum/GL/TextureFormat.h>
 #include <Magnum/Trade/ImageData.h>
+#include <Magnum/PixelFormat.h>
 #include <Magnum/ImageView.h>
 #include <Corrade/Containers/Reference.h>
 #include <Magnum/GL/Version.h>
@@ -102,17 +103,16 @@ public:
             uniform float ao_factor = 1.0;
 
             uniform vec3 light_direction = vec3(0.0, -0.5, -0.5);
-            uniform vec3 light_color = vec3(4.0);
+            uniform vec3 light_color = vec3(1.0);
 
             void main()
             {   
                 const float gamma = 2.2;
-                vec4 albedo = texture2D(albedo_texture, frag_tex_coord);
-                albedo.rgb = pow(albedo.rgb, vec3(gamma)) * albedo_factor;
+                vec4 albedo = texture2D(albedo_texture, frag_tex_coord) * albedo_factor;
                 float roughness = texture2D(roughness_texture, frag_tex_coord).r * roughness_factor;
                 float metallic = texture2D(metallic_texture, frag_tex_coord).r * metallic_factor;
 
-                vec3 normal = texture2D(normal_texture, frag_tex_coord).rgb * 2.0 - vec3(1.0);
+                vec3 normal = normalize(texture2D(normal_texture, frag_tex_coord).rgb * 2.0 - vec3(1.0));
                 normal = normalize(frag_TBN * normal) * (gl_FrontFacing ? 1.0 : -1.0) * normal_factor;
 
                 vec3 ao = texture2D(ao_texture, frag_tex_coord).rgb * ao_factor;
@@ -137,7 +137,7 @@ public:
                     case BASIC_MODE:
                     default:
                         float NdotL = max(dot(normal, normalize(-light_direction)), 0.1);
-                        fragment_color = albedo * vec4(light_color, 1.0) * NdotL * vec4(ao, 1.0);
+                        fragment_color = (0.1 + NdotL * vec4(light_color, 1.0) * vec4(ao, 1.0) * 0.9) * albedo;
 
                         break;
                 }
@@ -343,10 +343,10 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    constexpr glm::ivec2 window_size{ 1600, 900 };
+    constexpr glm::ivec2 window_size{ 1024, 1024 };
     constexpr float aspect = window_size.x / float(window_size.y);
-    constexpr float fov = glm::radians(60.0f);
-    const glm::mat4 proj = glm::perspective(fov, aspect, 0.01f, 400.0f);
+    constexpr float fov = glm::radians(45.0f);
+    const glm::mat4 proj = glm::perspective(fov, aspect, 0.5f, 100.0f);
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     glfwWindowHint(GLFW_SAMPLES, 8);
@@ -402,16 +402,11 @@ int main(int argc, char** argv)
         PBRShader pbr_shader; //TODO: pbr_shader -> shader
         //pbr_shader.draw(sphere_mesh);
 
-        Shaders::VertexColor3D shader;
-        const glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(50.0f));
-        const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 100.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
-        shader.setTransformationProjectionMatrix((Magnum::Matrix4)(proj * view * model));
-
         CORRADE_PLUGIN_IMPORT(StbImageImporter);
         PluginManager::Manager<Trade::AbstractImporter> manager;
         auto image_loader = manager.instantiate("StbImageImporter");
 
-        image_loader->openFile("data/uv_checker.png");
+        image_loader->openFile("data/albedo.png");
         auto albedo_image = image_loader->image2D(0);
         CORRADE_INTERNAL_ASSERT(albedo_image);
         GL::Texture2D albedo_texture;
@@ -420,6 +415,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .setStorage(1, GL::textureFormat(albedo_image->format()), albedo_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
+            .setSrgbDecode(true)
             .setSubImage(0, {}, *albedo_image)
             .generateMipmap();
 
@@ -432,6 +428,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .setStorage(1, GL::textureFormat(ao_image->format()), ao_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
+            .setSrgbDecode(false)
             .setSubImage(0, {}, * ao_image)
             .generateMipmap();
 
@@ -444,6 +441,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .setStorage(1, GL::textureFormat(metallic_image->format()), metallic_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
+            .setSrgbDecode(false)
             .setSubImage(0, {}, * metallic_image)
             .generateMipmap();
 
@@ -456,6 +454,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .setStorage(1, GL::textureFormat(normal_image->format()), normal_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
+            .setSrgbDecode(false)
             .setSubImage(0, {}, * normal_image)
             .generateMipmap();
 
@@ -468,6 +467,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .setStorage(1, GL::textureFormat(roughness_image->format()), roughness_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
+            .setSrgbDecode(false)
             .setSubImage(0, {}, * roughness_image)
             .generateMipmap();
 
@@ -502,10 +502,13 @@ int main(int argc, char** argv)
                 dpos.x = 1.0 - dpos.x;
                 dpos = dpos * 2.0 - 1.0;
 
-                light_dir = glm::normalize(glm::vec3(dpos, -0.25));
+                light_dir = glm::normalize(glm::vec3(dpos, -0.5));
             }
             
             last_key_state = glfwGetKey(window, GLFW_KEY_SPACE);
+
+            const glm::mat4 model = glm::rotate(glm::mat4(1.0), glm::radians(float(40.0f * glfwGetTime())), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(5.0f));
+            const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 15.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
 
             GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
             pbr_shader.set_model_matrix(Matrix4(model))
