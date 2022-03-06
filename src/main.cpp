@@ -13,6 +13,107 @@
 #include <Magnum/GlmIntegration/Integration.h>
 #include <spdlog/spdlog.h>
 
+using namespace Magnum;
+
+class PBRShader: public GL::AbstractShaderProgram 
+{
+public:
+    typedef GL::Attribute<0, Vector3> Position;
+    typedef GL::Attribute<1, Vector2> TextureCoord;
+
+    explicit PBRShader()
+    {
+
+    }
+
+    PBRShader& set_light_direction(const glm::vec3& dir)
+    {
+
+        return *this;
+    }
+
+    PBRShader& set_light_color(const glm::vec3& color)
+    {
+
+        return *this;
+    }
+
+    PBRShader& set_albedo_factor(float factor)
+    {
+
+        return *this;
+    }
+
+    PBRShader& set_roughness_factor(float factor)
+    {
+
+        return *this;
+    }
+
+    PBRShader& set_metallic_factor(float factor)
+    {
+
+        return *this;
+    }
+
+    PBRShader& set_normal_factor(float factor)
+    {
+
+        return *this;
+    }
+
+    PBRShader& set_ao_factor(float factor)
+    {
+
+        return *this;
+    }
+
+    PBRShader& bind_albedo_texture(GL::Texture2D& tex)
+    {
+
+        return *this;
+    }
+
+    PBRShader& bind_roughness_texture(GL::Texture2D& tex)
+    {
+
+        return *this;
+    }
+
+    PBRShader& bind_metallic_texture(GL::Texture2D& tex)
+    {
+
+        return *this;
+    }
+
+    PBRShader& bind_normal_texture(GL::Texture2D& tex)
+    {
+
+        return *this;
+    }
+
+    PBRShader& bind_ao_texture(GL::Texture2D& tex)
+    {
+
+        return *this;
+    }
+private:
+    enum : Int //0..n
+    {
+        AlbedoUnit,
+        RoughnessUnit,
+        MetallicUnit,
+        NormalUnit,
+        AOUnit
+    };
+
+    Int albedo_factor_uniform,
+        roughness_factor_uniform,
+        metallic_factor_uniform,
+        normal_factor_uniform,
+        ao_factor_uniform;
+};
+
 int main(int argc, char** argv)
 {
     if (!glfwInit())
@@ -39,8 +140,6 @@ int main(int argc, char** argv)
     glfwMakeContextCurrent(window);
 
     {
-        using namespace Magnum;
-
         Platform::GLContext ctx{ argc, argv };
 
         GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
@@ -74,11 +173,12 @@ int main(int argc, char** argv)
                 Shaders::VertexColor3D::Position{},
                 Shaders::VertexColor3D::Color3{});
 
+        PBRShader pbr_shader; //TODO: pbr_shader -> shader
+
         Shaders::VertexColor3D shader;
         const glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(100.0f));
         const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 100.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
         shader.setTransformationProjectionMatrix((Magnum::Matrix4)(proj * view * model));
-
 
         spdlog::info("Initialization successful");
 
