@@ -1,4 +1,5 @@
 #include <Magnum/Magnum.h>
+#include <Magnum/GL/Renderer.h>
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Mesh.h>
@@ -6,6 +7,9 @@
 #include <Magnum/Platform/GLContext.h>
 #include <Magnum/Shaders/VertexColor.h>
 #include <GLFW/glfw3.h>
+#include <Magnum/GlmIntegration/GtcIntegration.h>
+#include <Magnum/GlmIntegration/GtxIntegration.h>
+#include <Magnum/GlmIntegration/Integration.h>
 
 int main(int argc, char** argv)
 {
@@ -14,7 +18,13 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    GLFWwindow* const window = glfwCreateWindow(1280, 720, "Demo", nullptr, nullptr);
+    constexpr glm::ivec2 window_size{ 1600, 900 };
+    constexpr float aspect = window_size.x / float(window_size.y);
+    constexpr float fov = glm::radians(60.0f);
+    const glm::mat4 proj = glm::perspective(fov, aspect, 0.01f, 400.0f);
+
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    GLFWwindow* const window = glfwCreateWindow(window_size.x, window_size.y, "Demo", nullptr, nullptr);
 
     if (!window)
     {
@@ -28,6 +38,9 @@ int main(int argc, char** argv)
         using namespace Magnum;
 
         Platform::GLContext ctx{ argc, argv };
+
+        GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
+        GL::Renderer::disable(GL::Renderer::Feature::FaceCulling);
 
         /* Setup the colored triangle */
         using namespace Math::Literals;
@@ -52,10 +65,13 @@ int main(int argc, char** argv)
                 Shaders::VertexColor3D::Color3{});
 
         Shaders::VertexColor3D shader;
+        const glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(100.0f));
+        const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 100.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
+        shader.setTransformationProjectionMatrix((Magnum::Matrix4)(proj * view * model));
 
         while (!glfwWindowShouldClose(window)) 
         {
-            GL::defaultFramebuffer.clear(GL::FramebufferClear::Color);
+            GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
             shader.draw(mesh);
             glfwSwapBuffers(window);
             glfwPollEvents();
