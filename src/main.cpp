@@ -35,7 +35,7 @@ class PBRShader: public GL::AbstractShaderProgram
 public:
     typedef Shaders::Generic3D::Position Position; //0
     typedef Shaders::Generic3D::TextureCoordinates TextureCoord; //1
-    typedef Shaders::Generic3D::Tangent Tangent; //3
+    typedef Shaders::Generic3D::Tangent4 Tangent4; //3
     typedef Shaders::Generic3D::Bitangent Bitangent; //4
     typedef Shaders::Generic3D::Normal Normal; //5
 
@@ -49,11 +49,12 @@ public:
         vert.addSource(R"(
             layout(location = 0) in vec3 position;
             layout(location = 1) in vec2 tex_coord;
-            layout(location = 3) in vec3 tangent;
-            layout(location = 4) in vec3 bitangent;
+            layout(location = 3) in vec4 tangent4;
             layout(location = 5) in vec3 normal;
 
             out vec2 frag_tex_coord;
+            out mat3 frag_TBN;
+            out vec3 frag_pos;
 
             uniform mat4 model_matrix;
             uniform mat4 view_matrix;
@@ -64,6 +65,11 @@ public:
             {   
                 mat4 mvp_matrix = proj_matrix * view_matrix * model_matrix;
                 gl_Position = mvp_matrix * vec4(position, 1.0);
+
+                vec3 N = normalize(normal_matrix * normal);
+                vec3 T = normalize(normal_matrix * tangent4.xyz);
+                vec3 B = normalize(tangent4.a * cross(N, T));
+                frag_TBN = mat3(T, B, N);
 
                 frag_tex_coord = tex_coord;
             }
@@ -79,6 +85,8 @@ public:
             uniform int render_mode = BASIC_MODE;
 
             in vec2 frag_tex_coord;
+            in mat3 frag_TBN;
+            in vec3 frag_pos;
             out vec4 fragment_color;
 
             uniform sampler2D albedo_texture;
@@ -90,18 +98,21 @@ public:
             uniform float albedo_factor = 1.0;
             uniform float roughness_factor = 1.0;
             uniform float metallic_factor = 1.0;
-            uniform float normal_factor= 1.0;
+            uniform float normal_factor = 1.0;
             uniform float ao_factor = 1.0;
 
             uniform vec3 light_direction_uniform = vec3(0.0, -0.5, -0.5);
-            uniform vec3 light_color_uniform = vec3(1.0, 1.0, 1.0);
+            uniform vec3 light_color_uniform = vec3(4.0);
 
             void main()
             {   
                 vec4 albedo = texture2D(albedo_texture, frag_tex_coord) * albedo_factor;
                 float roughness = texture2D(roughness_texture, frag_tex_coord).r * roughness_factor;
                 float metallic = texture2D(metallic_texture, frag_tex_coord).r * metallic_factor;
-                vec3 normal = texture2D(normal_texture, frag_tex_coord).rgb * normal_factor;
+
+                vec3 normal = texture2D(normal_texture, frag_tex_coord).rgb * 2.0 - vec3(1.0);
+                normal = normalize(frag_TBN * normal) * normal_factor;
+
                 float ao = texture2D(ao_texture, frag_tex_coord).r * ao_factor;
             
                 switch(render_mode)
@@ -113,7 +124,7 @@ public:
                         fragment_color = vec4(vec3(metallic), 1.0);
                         break;
                     case NORMAL_MODE:
-                        fragment_color = vec4(normal, 1.0);
+                        fragment_color = vec4(normal * 0.5 + 0.5, 1.0);
                         break;
                     case AO_MODE:
                         fragment_color = vec4(vec3(ao), 1.0);
@@ -123,7 +134,8 @@ public:
                         break;
                     case BASIC_MODE:
                     default:
-                        fragment_color = albedo * vec4(vec3(ao), 1.0);
+                        float NdotL = max(dot(normal, normalize(-light_direction_uniform)), 0.0);
+                        fragment_color = albedo * vec4(light_color_uniform, 1.0) * NdotL * vec4(vec3(ao), 1.0);
                         break;
                 }
 
@@ -163,7 +175,7 @@ public:
         bindAttributeLocation(Position::Location, "position");
         bindAttributeLocation(TextureCoord::Location, "tex_coord");
         bindAttributeLocation(Normal::Location, "normal");
-        bindAttributeLocation(Tangent::Location, "tangent");
+        bindAttributeLocation(Tangent4::Location, "tangent4");
         bindAttributeLocation(Bitangent::Location, "bitangent");
 
         model_matrix_uniform = uniformLocation("model_matrix");
