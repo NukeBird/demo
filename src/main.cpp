@@ -3,6 +3,7 @@
 #include <Magnum/GL/Buffer.h>
 #include <Magnum/GL/DefaultFramebuffer.h>
 #include <Magnum/GL/Mesh.h>
+#include <Magnum/GL/DebugOutput.h>
 #include <Magnum/Math/Color.h>
 #include <Magnum/Platform/GLContext.h>
 #include <Magnum/Shaders/VertexColor.h>
@@ -44,6 +45,13 @@ int main(int argc, char** argv)
 
         GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
         GL::Renderer::disable(GL::Renderer::Feature::FaceCulling);
+
+        GL::Renderer::enable(GL::Renderer::Feature::DebugOutput);
+        GL::Renderer::enable(GL::Renderer::Feature::DebugOutputSynchronous);
+        GL::DebugOutput::setDefaultCallback();
+        /* Disable rather spammy "Buffer detailed info" debug messages on NVidia drivers */
+        GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Api, GL::DebugOutput::Type::Other, { 131185 }, false);
+        //glClear(235);
 
         /* Setup the colored triangle */
         using namespace Math::Literals;
