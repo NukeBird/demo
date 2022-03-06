@@ -357,7 +357,7 @@ int main(int argc, char** argv)
             pbr_shader.set_model_matrix(Matrix4(model))
                 .set_view_matrix(Matrix4(view))
                 .set_proj_matrix(Matrix4(proj))
-                .set_normal_matrix(Matrix4(model).normalMatrix())
+                .set_normal_matrix(Matrix4(view * model).normalMatrix())
                 .bind_albedo_texture(albedo_texture)
                 .draw(sphere_mesh);
             glfwSwapBuffers(window);
