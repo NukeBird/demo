@@ -5,6 +5,7 @@ magnum/2020.06
 magnum-extras/2020.06
 magnum-integration/2020.06
 magnum-plugins/2020.06
+spdlog/1.9.2
 
 [options]
 #blah:some_foo=True

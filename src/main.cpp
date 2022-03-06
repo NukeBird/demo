@@ -10,11 +10,13 @@
 #include <Magnum/GlmIntegration/GtcIntegration.h>
 #include <Magnum/GlmIntegration/GtxIntegration.h>
 #include <Magnum/GlmIntegration/Integration.h>
+#include <spdlog/spdlog.h>
 
 int main(int argc, char** argv)
 {
     if (!glfwInit())
     {
+        spdlog::error("Can't initialize GLFW");
         return -1;
     }
 
@@ -28,6 +30,7 @@ int main(int argc, char** argv)
 
     if (!window)
     {
+        spdlog::error("Can't create window");
         glfwTerminate();
         return -1;
     }
@@ -68,6 +71,9 @@ int main(int argc, char** argv)
         const glm::mat4 model = glm::scale(glm::mat4(1.0), glm::vec3(100.0f));
         const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 100.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
         shader.setTransformationProjectionMatrix((Magnum::Matrix4)(proj * view * model));
+
+
+        spdlog::info("Initialization successful");
 
         while (!glfwWindowShouldClose(window)) 
         {
