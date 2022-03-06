@@ -58,7 +58,7 @@ public:
             uniform mat4 model_matrix;
             uniform mat4 view_matrix;
             uniform mat4 proj_matrix;
-            uniform mat4 normal_matrix;
+            uniform mat3 normal_matrix;
 
             void main()
             {   
@@ -161,7 +161,7 @@ public:
         return *this;
     }
 
-    PBRShader& set_normal_matrix(const Matrix4& mtx)
+    PBRShader& set_normal_matrix(const Matrix3x3& mtx)
     {
         setUniform(normal_matrix_uniform, mtx);
         return *this;
@@ -357,6 +357,7 @@ int main(int argc, char** argv)
             pbr_shader.set_model_matrix(Matrix4(model))
                 .set_view_matrix(Matrix4(view))
                 .set_proj_matrix(Matrix4(proj))
+                .set_normal_matrix(Matrix4(model).normalMatrix())
                 .bind_albedo_texture(albedo_texture)
                 .draw(sphere_mesh);
             glfwSwapBuffers(window);
