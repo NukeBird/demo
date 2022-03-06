@@ -8,7 +8,8 @@ magnum-plugins/2020.06
 spdlog/1.9.2
 
 [options]
-#blah:some_foo=True
+magnum:shared_plugins=False
+magnum-plugins:shared_plugins=False
 
 [generators]
 cmake

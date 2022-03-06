@@ -51,7 +51,6 @@ int main(int argc, char** argv)
         GL::DebugOutput::setDefaultCallback();
         /* Disable rather spammy "Buffer detailed info" debug messages on NVidia drivers */
         GL::DebugOutput::setEnabled(GL::DebugOutput::Source::Api, GL::DebugOutput::Type::Other, { 131185 }, false);
-        //glClear(235);
 
         /* Setup the colored triangle */
         using namespace Math::Literals;
