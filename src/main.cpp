@@ -143,39 +143,39 @@ public:
         ao_factor_uniform = uniformLocation("ao_factor");
     }
 
-    PBRShader& set_model_matrix(const glm::mat4& mtx)
+    PBRShader& set_model_matrix(const Matrix4& mtx)
     {
-        setUniform(model_matrix_uniform, (Matrix4)mtx);
+        setUniform(model_matrix_uniform, mtx);
         return *this;
     }
 
-    PBRShader& set_view_matrix(const glm::mat4& mtx)
+    PBRShader& set_view_matrix(const Matrix4& mtx)
     {
-        setUniform(view_matrix_uniform, (Matrix4)mtx);
+        setUniform(view_matrix_uniform, mtx);
         return *this;
     }
 
-    PBRShader& set_proj_matrix(const glm::mat4& mtx)
+    PBRShader& set_proj_matrix(const Matrix4& mtx)
     {
-        setUniform(proj_matrix_uniform, (Matrix4)mtx);
+        setUniform(proj_matrix_uniform, mtx);
         return *this;
     }
 
-    PBRShader& set_normal_matrix(const glm::mat4& mtx)
+    PBRShader& set_normal_matrix(const Matrix4& mtx)
     {
-        setUniform(normal_matrix_uniform, (Matrix4)mtx);
+        setUniform(normal_matrix_uniform, mtx);
         return *this;
     }
 
-    PBRShader& set_light_direction(const glm::vec3& dir)
+    PBRShader& set_light_direction(const Vector3& dir)
     {
-        setUniform(light_direction_uniform, (Vector3)dir);
+        setUniform(light_direction_uniform, dir);
         return *this;
     }
 
-    PBRShader& set_light_color(const glm::vec3& color)
+    PBRShader& set_light_color(const Vector3& color)
     {
-        setUniform(light_color_uniform, (Vector3)color);
+        setUniform(light_color_uniform, color);
         return *this;
     }
 
@@ -354,9 +354,9 @@ int main(int argc, char** argv)
         while (!glfwWindowShouldClose(window)) 
         {
             GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
-            pbr_shader.set_model_matrix(model)
-                .set_view_matrix(view)
-                .set_proj_matrix(proj)
+            pbr_shader.set_model_matrix(Matrix4(model))
+                .set_view_matrix(Matrix4(view))
+                .set_proj_matrix(Matrix4(proj))
                 .bind_albedo_texture(albedo_texture)
                 .draw(sphere_mesh);
             glfwSwapBuffers(window);
