@@ -11,6 +11,9 @@
 #include <Magnum/Shaders/Generic.h>
 #include <Magnum/Shaders/visibility.h>
 #include <Magnum/GL/Texture.h>
+#include <Magnum/GL/TextureFormat.h>
+#include <Magnum/Trade/ImageData.h>
+#include <Magnum/ImageView.h>
 #include <Corrade/Containers/Reference.h>
 #include <Magnum/GL/Version.h>
 #include <Magnum/GL/DebugOutput.h>
@@ -21,6 +24,8 @@
 #include <Magnum/GlmIntegration/GtcIntegration.h>
 #include <Magnum/GlmIntegration/GtxIntegration.h>
 #include <Magnum/GlmIntegration/Integration.h>
+#include <MagnumPlugins/StbImageImporter/StbImageImporter.h>
+#include <MagnumPlugins/StbImageImporter/configure.h>
 #include <spdlog/spdlog.h>
 
 using namespace Magnum;
@@ -48,6 +53,8 @@ public:
             layout(location = 4) in vec3 bitangent;
             layout(location = 5) in vec3 normal;
 
+            out vec2 frag_tex_coord;
+
             uniform mat4 model_matrix;
             uniform mat4 view_matrix;
             uniform mat4 proj_matrix;
@@ -57,10 +64,13 @@ public:
             {   
                 mat4 mvp_matrix = proj_matrix * view_matrix * model_matrix;
                 gl_Position = mvp_matrix * vec4(position, 1.0);
+
+                frag_tex_coord = tex_coord;
             }
         )");
 
         frag.addSource(R"(
+            in vec2 frag_tex_coord;
             out vec4 fragment_color;
 
             layout(location = 0) uniform sampler2D albedo_texture;
@@ -71,15 +81,15 @@ public:
 
             uniform vec3 light_direction_uniform = vec3(0.0, -0.5, -0.5);
             uniform vec3 light_color_uniform = vec3(1.0, 1.0, 1.0);
-            uniform float albedo_factor_uniform = 1.0;
-            uniform float roughness_factor_uniform = 1.0;
-            uniform float metallic_factor_uniform = 1.0;
-            uniform float normal_factor_uniform = 1.0;
-            uniform float ao_factor_uniform = 1.0;
+            uniform float albedo_factor = 1.0;
+            uniform float roughness_factor = 1.0;
+            uniform float metallic_factor = 1.0;
+            uniform float normal_factor= 1.0;
+            uniform float ao_factor = 1.0;
 
             void main()
             {   
-                fragment_color = vec4(0.0, 1.0, 0.0, 1.0);
+                fragment_color = albedo_factor * texture2D(albedo_texture, frag_tex_coord);
             }
         )");
 
@@ -238,7 +248,6 @@ private:
         AOUnit
     };
 
-
     Int model_matrix_uniform,
         view_matrix_uniform,
         proj_matrix_uniform,
@@ -324,6 +333,22 @@ int main(int argc, char** argv)
         const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 100.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
         shader.setTransformationProjectionMatrix((Magnum::Matrix4)(proj * view * model));
 
+        CORRADE_PLUGIN_IMPORT(StbImageImporter);
+        PluginManager::Manager<Trade::AbstractImporter> manager;
+        auto image_loader = manager.instantiate("StbImageImporter");
+
+        image_loader->openFile("data/albedo.png");
+        auto albedo_image = image_loader->image2D(0);
+        CORRADE_INTERNAL_ASSERT(albedo_image);
+
+        GL::Texture2D albedo_texture;
+        albedo_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
+            .setMagnificationFilter(GL::SamplerFilter::Linear)
+            .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
+            .generateMipmap()
+            .setStorage(1, GL::textureFormat(albedo_image->format()), albedo_image->size())
+            .setSubImage(0, {}, *albedo_image);
+
         spdlog::info("Initialization successful");
 
         while (!glfwWindowShouldClose(window)) 
@@ -332,6 +357,7 @@ int main(int argc, char** argv)
             pbr_shader.set_model_matrix(model)
                 .set_view_matrix(view)
                 .set_proj_matrix(proj)
+                .bind_albedo_texture(albedo_texture)
                 .draw(sphere_mesh);
             glfwSwapBuffers(window);
             glfwPollEvents();
