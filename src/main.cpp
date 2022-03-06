@@ -345,6 +345,7 @@ int main(int argc, char** argv)
     const glm::mat4 proj = glm::perspective(fov, aspect, 0.01f, 400.0f);
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_SAMPLES, 8);
     GLFWwindow* const window = glfwCreateWindow(window_size.x, window_size.y, "Demo", nullptr, nullptr);
 
     if (!window)
