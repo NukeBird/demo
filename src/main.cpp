@@ -102,7 +102,7 @@ public:
             uniform float ao_factor = 1.0;
 
             uniform vec3 light_direction = vec3(0.0, -0.5, -0.5);
-            uniform vec3 light_color = vec3(10.0);
+            uniform vec3 light_color = vec3(4.0);
 
             void main()
             {   
@@ -115,7 +115,7 @@ public:
                 vec3 normal = texture2D(normal_texture, frag_tex_coord).rgb * 2.0 - vec3(1.0);
                 normal = normalize(frag_TBN * normal) * (gl_FrontFacing ? 1.0 : -1.0) * normal_factor;
 
-                float ao = texture2D(ao_texture, frag_tex_coord).r * ao_factor;
+                vec3 ao = texture2D(ao_texture, frag_tex_coord).rgb * ao_factor;
             
                 switch(render_mode)
                 {
@@ -129,15 +129,15 @@ public:
                         fragment_color = vec4(normal * 0.5 + 0.5, 1.0);
                         break;
                     case AO_MODE:
-                        fragment_color = vec4(vec3(ao), 1.0);
+                        fragment_color = vec4(ao, 1.0);
                         break;
                     case ALBEDO_MODE:
                         fragment_color = albedo;
                         break;
                     case BASIC_MODE:
                     default:
-                        float NdotL = max(dot(normal, normalize(-light_direction)), 0.0);
-                        fragment_color = albedo * vec4(light_color, 1.0) * NdotL * vec4(vec3(ao), 1.0);
+                        float NdotL = max(dot(normal, normalize(-light_direction)), 0.1);
+                        fragment_color = albedo * vec4(light_color, 1.0) * NdotL * vec4(ao, 1.0);
 
                         break;
                 }
@@ -411,17 +411,17 @@ int main(int argc, char** argv)
         PluginManager::Manager<Trade::AbstractImporter> manager;
         auto image_loader = manager.instantiate("StbImageImporter");
 
-        image_loader->openFile("data/albedo.png");
+        image_loader->openFile("data/uv_checker.png");
         auto albedo_image = image_loader->image2D(0);
         CORRADE_INTERNAL_ASSERT(albedo_image);
         GL::Texture2D albedo_texture;
         albedo_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
             .setMagnificationFilter(GL::SamplerFilter::Linear)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
-            .generateMipmap()
             .setStorage(1, GL::textureFormat(albedo_image->format()), albedo_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
-            .setSubImage(0, {}, *albedo_image);
+            .setSubImage(0, {}, *albedo_image)
+            .generateMipmap();
 
         image_loader->openFile("data/ao.png");
         auto ao_image = image_loader->image2D(0);
@@ -430,10 +430,10 @@ int main(int argc, char** argv)
         ao_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
             .setMagnificationFilter(GL::SamplerFilter::Linear)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
-            .generateMipmap()
             .setStorage(1, GL::textureFormat(ao_image->format()), ao_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
-            .setSubImage(0, {}, * ao_image);
+            .setSubImage(0, {}, * ao_image)
+            .generateMipmap();
 
         image_loader->openFile("data/metallic.png");
         auto metallic_image = image_loader->image2D(0);
@@ -442,10 +442,10 @@ int main(int argc, char** argv)
         metallic_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
             .setMagnificationFilter(GL::SamplerFilter::Linear)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
-            .generateMipmap()
             .setStorage(1, GL::textureFormat(metallic_image->format()), metallic_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
-            .setSubImage(0, {}, * metallic_image);
+            .setSubImage(0, {}, * metallic_image)
+            .generateMipmap();
 
         image_loader->openFile("data/normal.png");
         auto normal_image = image_loader->image2D(0);
@@ -454,10 +454,10 @@ int main(int argc, char** argv)
         normal_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
             .setMagnificationFilter(GL::SamplerFilter::Linear)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
-            .generateMipmap()
             .setStorage(1, GL::textureFormat(normal_image->format()), normal_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
-            .setSubImage(0, {}, * normal_image);
+            .setSubImage(0, {}, * normal_image)
+            .generateMipmap();
 
         image_loader->openFile("data/roughness.png");
         auto roughness_image = image_loader->image2D(0);
@@ -466,10 +466,10 @@ int main(int argc, char** argv)
         roughness_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
             .setMagnificationFilter(GL::SamplerFilter::Linear)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
-            .generateMipmap()
             .setStorage(1, GL::textureFormat(roughness_image->format()), roughness_image->size())
             .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
-            .setSubImage(0, {}, * roughness_image);
+            .setSubImage(0, {}, * roughness_image)
+            .generateMipmap();
 
         spdlog::info("Initialization successful");
 
@@ -487,6 +487,23 @@ int main(int argc, char** argv)
                     spdlog::info("Current mode {}", current_mode);
                 }
             }
+
+            glm::vec3 light_dir;
+            {
+                glm::dvec2 dpos;
+                glfwGetCursorPos(window, &dpos.x, &dpos.y);
+                if (dpos.x < 0.0 || dpos.x > window_size.x
+                    || dpos.y < 0.0 || dpos.y > window_size.y)
+                {
+                    dpos = glm::dvec2(window_size) / glm::dvec2(2.0);
+                }
+
+                dpos /= window_size;
+                dpos.x = 1.0 - dpos.x;
+                dpos = dpos * 2.0 - 1.0;
+
+                light_dir = glm::normalize(glm::vec3(dpos, -0.25));
+            }
             
             last_key_state = glfwGetKey(window, GLFW_KEY_SPACE);
 
@@ -500,6 +517,7 @@ int main(int argc, char** argv)
                 .bind_metallic_texture(metallic_texture)
                 .bind_normal_texture(normal_texture)
                 .bind_roughness_texture(roughness_texture)
+                .set_light_direction(Vector3(light_dir))
                 .set_render_mode(current_mode)
                 .draw(sphere_mesh);
             glfwSwapBuffers(window);
