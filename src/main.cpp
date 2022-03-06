@@ -111,7 +111,7 @@ public:
                 float metallic = texture2D(metallic_texture, frag_tex_coord).r * metallic_factor;
 
                 vec3 normal = texture2D(normal_texture, frag_tex_coord).rgb * 2.0 - vec3(1.0);
-                normal = normalize(frag_TBN * normal) * normal_factor;
+                normal = normalize(frag_TBN * normal) * (gl_FrontFacing ? 1.0 : -1.0) * normal_factor;
 
                 float ao = texture2D(ao_texture, frag_tex_coord).r * ao_factor;
             
@@ -362,6 +362,7 @@ int main(int argc, char** argv)
 
         GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
         GL::Renderer::disable(GL::Renderer::Feature::FaceCulling);
+        GL::Renderer::enable(GL::Renderer::Feature::Multisampling);
 
         GL::Renderer::enable(GL::Renderer::Feature::DebugOutput);
         GL::Renderer::enable(GL::Renderer::Feature::DebugOutputSynchronous);
