@@ -101,8 +101,8 @@ public:
             uniform float normal_factor = 1.0;
             uniform float ao_factor = 1.0;
 
-            uniform vec3 light_direction_uniform = vec3(0.0, -0.5, -0.5);
-            uniform vec3 light_color_uniform = vec3(4.0);
+            uniform vec3 light_direction = vec3(0.0, -0.5, -0.5);
+            uniform vec3 light_color = vec3(4.0);
 
             void main()
             {   
@@ -134,8 +134,8 @@ public:
                         break;
                     case BASIC_MODE:
                     default:
-                        float NdotL = max(dot(normal, normalize(-light_direction_uniform)), 0.0);
-                        fragment_color = albedo * vec4(light_color_uniform, 1.0) * NdotL * vec4(vec3(ao), 1.0);
+                        float NdotL = max(dot(normal, normalize(-light_direction)), 0.0);
+                        fragment_color = albedo * vec4(light_color, 1.0) * NdotL * vec4(vec3(ao), 1.0);
                         break;
                 }
 
@@ -414,6 +414,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .generateMipmap()
             .setStorage(1, GL::textureFormat(albedo_image->format()), albedo_image->size())
+            .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
             .setSubImage(0, {}, *albedo_image);
 
         image_loader->openFile("data/ao.png");
@@ -425,6 +426,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .generateMipmap()
             .setStorage(1, GL::textureFormat(ao_image->format()), ao_image->size())
+            .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
             .setSubImage(0, {}, * ao_image);
 
         image_loader->openFile("data/metallic.png");
@@ -436,6 +438,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .generateMipmap()
             .setStorage(1, GL::textureFormat(metallic_image->format()), metallic_image->size())
+            .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
             .setSubImage(0, {}, * metallic_image);
 
         image_loader->openFile("data/normal.png");
@@ -447,6 +450,7 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .generateMipmap()
             .setStorage(1, GL::textureFormat(normal_image->format()), normal_image->size())
+            .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
             .setSubImage(0, {}, * normal_image);
 
         image_loader->openFile("data/roughness.png");
@@ -458,9 +462,8 @@ int main(int argc, char** argv)
             .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
             .generateMipmap()
             .setStorage(1, GL::textureFormat(roughness_image->format()), roughness_image->size())
+            .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
             .setSubImage(0, {}, * roughness_image);
-
-        spdlog::info("ABOBA {}", image_loader->image2DCount());
 
         spdlog::info("Initialization successful");
 
