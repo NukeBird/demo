@@ -102,11 +102,13 @@ public:
             uniform float ao_factor = 1.0;
 
             uniform vec3 light_direction = vec3(0.0, -0.5, -0.5);
-            uniform vec3 light_color = vec3(4.0);
+            uniform vec3 light_color = vec3(10.0);
 
             void main()
             {   
-                vec4 albedo = texture2D(albedo_texture, frag_tex_coord) * albedo_factor;
+                const float gamma = 2.2;
+                vec4 albedo = texture2D(albedo_texture, frag_tex_coord);
+                albedo.rgb = pow(albedo.rgb, vec3(gamma)) * albedo_factor;
                 float roughness = texture2D(roughness_texture, frag_tex_coord).r * roughness_factor;
                 float metallic = texture2D(metallic_texture, frag_tex_coord).r * metallic_factor;
 
@@ -136,9 +138,11 @@ public:
                     default:
                         float NdotL = max(dot(normal, normalize(-light_direction)), 0.0);
                         fragment_color = albedo * vec4(light_color, 1.0) * NdotL * vec4(vec3(ao), 1.0);
+
                         break;
                 }
 
+                fragment_color.rgb = pow(fragment_color.rgb, vec3(1.0 / gamma));
                 //fragment_color = vec4(normal, 1.0);
             }
         )");
