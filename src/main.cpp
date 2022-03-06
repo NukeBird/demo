@@ -62,15 +62,21 @@ public:
             uniform mat4 proj_matrix;
             uniform mat3 normal_matrix;
 
+            uniform sampler2D height_texture;
+            uniform float height_factor = 0.5;
+
             void main()
             {   
-                mat4 mvp_matrix = proj_matrix * view_matrix * model_matrix;
-                gl_Position = mvp_matrix * vec4(position, 1.0);
-
                 vec3 N = normalize(normal_matrix * normal);
                 vec3 T = normalize(normal_matrix * tangent4.xyz);
                 vec3 B = normalize(tangent4.a * cross(N, T));
                 frag_TBN = mat3(T, B, N);
+
+                mat4 mv_matrix = view_matrix * model_matrix;
+
+                vec4 pos = mv_matrix * vec4(position, 1.0);
+                pos = proj_matrix * vec4(pos.xyz + N * texture2D(height_texture, tex_coord).r * height_factor, 1.0);
+                gl_Position = pos;
 
                 frag_tex_coord = tex_coord;
             }
@@ -195,6 +201,7 @@ public:
         metallic_factor_uniform = uniformLocation("metallic_factor");
         normal_factor_uniform = uniformLocation("normal_factor");
         ao_factor_uniform = uniformLocation("ao_factor");
+        height_factor_uniform = uniformLocation("height_factor");
 
         render_mode_uniform = uniformLocation("render_mode");
 
@@ -203,6 +210,7 @@ public:
         setUniform(uniformLocation("metallic_texture"), MetallicUnit);
         setUniform(uniformLocation("normal_texture"), NormalUnit);
         setUniform(uniformLocation("ao_texture"), AOUnit);
+        setUniform(uniformLocation("height_texture"), HeightUnit);
     }
 
     PBRShader& set_model_matrix(const Matrix4& mtx)
@@ -271,6 +279,12 @@ public:
         return *this;
     }
 
+    PBRShader& set_height_factor(float factor)
+    {
+        setUniform(height_factor_uniform, factor);
+        return *this;
+    }
+
     PBRShader& bind_albedo_texture(GL::Texture2D& tex)
     {
         tex.bind(AlbedoUnit);
@@ -297,8 +311,13 @@ public:
 
     PBRShader& bind_ao_texture(GL::Texture2D& tex)
     {
-       
         tex.bind(AOUnit);
+        return *this;
+    }
+
+    PBRShader& bind_height_texture(GL::Texture2D& tex)
+    {
+        tex.bind(HeightUnit);
         return *this;
     }
 
@@ -316,7 +335,8 @@ private:
         RoughnessUnit,
         MetallicUnit,
         NormalUnit,
-        AOUnit
+        AOUnit,
+        HeightUnit
     };
 
     Int model_matrix_uniform,
@@ -332,7 +352,8 @@ private:
         roughness_factor_uniform,
         metallic_factor_uniform,
         normal_factor_uniform,
-        ao_factor_uniform;
+        ao_factor_uniform,
+        height_factor_uniform;
 };
 
 int main(int argc, char** argv)
@@ -346,7 +367,7 @@ int main(int argc, char** argv)
     constexpr glm::ivec2 window_size{ 1024, 1024 };
     constexpr float aspect = window_size.x / float(window_size.y);
     constexpr float fov = glm::radians(45.0f);
-    const glm::mat4 proj = glm::perspective(fov, aspect, 0.5f, 100.0f);
+    const glm::mat4 proj = glm::perspective(fov, aspect, 0.01f, 100.0f);
 
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     glfwWindowHint(GLFW_SAMPLES, 8);
@@ -396,7 +417,7 @@ int main(int argc, char** argv)
                 Shaders::VertexColor3D::Position{},
                 Shaders::VertexColor3D::Color3{});
 
-        GL::Mesh sphere_mesh = MeshTools::compile(Primitives::uvSphereSolid(64, 64, Primitives::UVSphereFlag::Tangents | Primitives::UVSphereFlag::TextureCoordinates), 
+        GL::Mesh sphere_mesh = MeshTools::compile(Primitives::uvSphereSolid(128, 128, Primitives::UVSphereFlag::Tangents | Primitives::UVSphereFlag::TextureCoordinates), 
             MeshTools::CompileFlag::GenerateSmoothNormals);
 
         PBRShader pbr_shader; //TODO: pbr_shader -> shader
@@ -471,6 +492,19 @@ int main(int argc, char** argv)
             .setSubImage(0, {}, * roughness_image)
             .generateMipmap();
 
+        image_loader->openFile("data/height.png");
+        auto height_image = image_loader->image2D(0);
+        CORRADE_INTERNAL_ASSERT(height_image);
+        GL::Texture2D height_texture;
+        height_texture.setWrapping(GL::SamplerWrapping::ClampToEdge)
+            .setMagnificationFilter(GL::SamplerFilter::Linear)
+            .setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
+            .setStorage(1, GL::textureFormat(height_image->format()), height_image->size())
+            .setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
+            .setSrgbDecode(false)
+            .setSubImage(0, {}, * height_image)
+            .generateMipmap();
+
         spdlog::info("Initialization successful");
 
         while (!glfwWindowShouldClose(window)) 
@@ -502,13 +536,13 @@ int main(int argc, char** argv)
                 dpos.x = 1.0 - dpos.x;
                 dpos = dpos * 2.0 - 1.0;
 
-                light_dir = glm::normalize(glm::vec3(dpos, -0.5));
+                light_dir = glm::normalize(glm::vec3(dpos * 2.0, -1.0));
             }
             
             last_key_state = glfwGetKey(window, GLFW_KEY_SPACE);
 
             const glm::mat4 model = glm::rotate(glm::mat4(1.0), glm::radians(float(40.0f * glfwGetTime())), glm::vec3(0, 1, 0)) * glm::scale(glm::mat4(1.0), glm::vec3(5.0f));
-            const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 15.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
+            const glm::mat4 view = glm::lookAt(glm::vec3(0.0, 0.0, 20.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
 
             GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
             pbr_shader.set_model_matrix(Matrix4(model))
@@ -520,6 +554,7 @@ int main(int argc, char** argv)
                 .bind_metallic_texture(metallic_texture)
                 .bind_normal_texture(normal_texture)
                 .bind_roughness_texture(roughness_texture)
+                .bind_height_texture(height_texture)
                 .set_light_direction(Vector3(light_dir))
                 .set_render_mode(current_mode)
                 .draw(sphere_mesh);
